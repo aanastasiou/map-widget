@@ -22,15 +22,15 @@
 ;; along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 (require
- racket/math
- racket/class
- racket/gui/base
- racket/match
- pict
- "utilities.rkt"          ; for get-pref
- "map-util.rkt"
- "tiles.rkt"
- "layers.rkt")
+  racket/math
+  racket/class
+  racket/gui/base
+  racket/match
+  pict
+  "utilities.rkt"          ; for get-pref
+  "map-util.rkt"
+  "tiles.rkt"
+  "layers.rkt")
 
 (provide map-impl%)
 
@@ -53,34 +53,34 @@
         [old-text-fg (send dc get-text-foreground)]
         [old-text-bg (send dc get-text-background)])
     (dynamic-wind
-      (lambda ()
-        (send dc set-smoothing 'smoothed))
-      thunk
-      (lambda ()
-        (send dc set-smoothing old-smoothing)
-        (send dc set-pen old-pen)
-        (send dc set-brush old-brush)
-        (send dc set-font old-font)
-        (send dc set-text-foreground old-text-fg)
-        (send dc set-text-background old-text-bg)))))
+     (lambda ()
+       (send dc set-smoothing 'smoothed))
+     thunk
+     (lambda ()
+       (send dc set-smoothing old-smoothing)
+       (send dc set-pen old-pen)
+       (send dc set-brush old-brush)
+       (send dc set-font old-font)
+       (send dc set-text-foreground old-text-fg)
+       (send dc set-text-background old-text-bg)))))
 
 (define (with-origin dc origin-x origin-y thunk)
   (let-values (([ox oy] (send dc get-origin)))
     (dynamic-wind
-      (lambda ()
-        (send dc set-origin (- origin-x) (- origin-y)))
-      thunk
-      (lambda ()
-        (send dc set-origin ox oy)))))
+     (lambda ()
+       (send dc set-origin (- origin-x) (- origin-y)))
+     thunk
+     (lambda ()
+       (send dc set-origin ox oy)))))
 
 ;; Set a clipping rect at X,Y,WIDTH and HEIGHT onto the device context DC,
 ;; than execute THUNK.  The original clipping rect is restored at the end.
 (define (with-clipping-rect dc x y width height thunk)
   (let ([old-clipping-region (send dc get-clipping-region)])
     (dynamic-wind
-      (lambda () (send dc set-clipping-rect x y width height))
-      thunk
-      (lambda () (send dc set-clipping-region old-clipping-region)))))
+     (lambda () (send dc set-clipping-rect x y width height))
+     thunk
+     (lambda () (send dc set-clipping-region old-clipping-region)))))
 
 ;; A timer which does not restart when it is already running.  Calling `start`
 ;; on a `timer%` class will reset the alarm interval and, if `start` is called
@@ -257,6 +257,7 @@
              (set! last-mouse-x (send event get-x))
              (set! last-mouse-y (send event get-y))
              (display "\n")
+             (display "DATA \n")
              (display (send event get-x))
              (display "\n")
              (display last-mouse-y)
@@ -271,6 +272,21 @@
              (display "\n")
              (display max-coord)
              (display "\n")
+             (display "INFERENCE\n")
+             (let*-values ([(top-left-x) (origin-x . / . max-coord)]
+                          [(top-left-y) (origin-y . / . max-coord)]
+                          [(lcx) ((origin-x . + . (width . / . 2)) . / . max-coord)]
+                          [(lcy) ((origin-y . + . (height . / . 2)) . / . max-coord)]
+                          [(lcx2) ((origin-x . + . last-mouse-x) . / . max-coord)]
+                          [(lcy2) ((origin-y . + . last-mouse-y) . / . max-coord)]
+                          [(px py) (npoint->lat-lon (npoint lcx lcy))]
+                          [(px2 py2) (npoint->lat-lon (npoint lcx2 lcy2))])                   
+               (display (format "Top left corner X:~a\n" top-left-x))
+               (display (format "Top left corner Y:~a\n" top-left-y))
+               (display (format "Centre X:~a\n" px))
+               (display (format "Centre Y:~a\n" py))
+               (display (format "Mouse X:~a\n" px2))
+               (display (format "Mouse Y:~a\n" py2)))
              
              ;; Return as "Not handled', let others maybe handle it
              (for/or ([l (in-list the-mouse-event-layers)])
