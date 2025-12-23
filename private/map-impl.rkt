@@ -271,411 +271,385 @@
       (cond ((send event button-down? 'left)
              (set! last-mouse-x (send event get-x))
              (set! last-mouse-y (send event get-y))
-;             (display "\n")
-;             (display "DATA \n")
-;             (display (send event get-x))
-;             (display "\n")
-;             (display last-mouse-y)
-;             (display "\n")
-;             (display width)
-;             (display "\n")
-;             (display height)
-;             (display "\n")
-;             (display origin-x)
-;             (display "\n")
-;             (display origin-y)
-;             (display "\n")
-;             (display max-coord)
-;             (display "\n")
-;             (display "INFERENCE\n")
-;             (let*-values ([(top-left-x) (origin-x . / . max-coord)]
-;                           [(top-left-y) (origin-y . / . max-coord)]
-;                           [(lcx) ((origin-x . + . (width . / . 2)) . / . max-coord)]
-;                           [(lcy) ((origin-y . + . (height . / . 2)) . / . max-coord)]
-;                           [(lcx2) ((origin-x . + . last-mouse-x) . / . max-coord)]
-;                           [(lcy2) ((origin-y . + . last-mouse-y) . / . max-coord)]
-;                           [(px py) (npoint->lat-lon (npoint lcx lcy))]
-;                           [(px2 py2) (npoint->lat-lon (npoint lcx2 lcy2))])                   
-;               (display (format "Top left corner X:~a\n" top-left-x))
-;               (display (format "Top left corner Y:~a\n" top-left-y))
-;               (display (format "Centre X:~a\n" px))
-;               (display (format "Centre Y:~a\n" py))
-;               (display (format "Mouse X:~a\n" px2))
-;               (display (format "Mouse Y:~a\n" py2)))
-             
+             (let-values ([(glong glat) (pos-local->global last-mouse-x last-mouse-y)])
+               (for/or ([l (in-list the-mouse-event-layers)])
+                 (send l on-mouse-event dc x y editorx editory event
+                       glong
+                       glat)))
              ;; Return as "Not handled', let others maybe handle it
-             (for/or ([l (in-list the-mouse-event-layers)])
-               (send l on-mouse-event dc x y editorx editory event))
              #f)
             ((send event button-up? 'left)
              (set! last-mouse-x #f)
-             (set! last-mouse-y #f)
-             ;; Return as "Not handled', let others maybe handle it
+             (set! last-mouse-y #f)             
              (for/or ([l (in-list the-mouse-event-layers)])
                (send l on-mouse-event dc x y editorx editory event))
-             #f)
-            ((send event dragging?)
-             (let ((mouse-x (send event get-x))
-                   (mouse-y (send event get-y)))
-               (when (and last-mouse-x last-mouse-y)
-                 (drag-map (- mouse-x last-mouse-x) (- mouse-y last-mouse-y)))
-               (set! last-mouse-x mouse-x)
-               (set! last-mouse-y mouse-y))
-             (set! auto-resize-to-fit? #f)
-             (for/or ([l (in-list the-mouse-event-layers)])
-               (send l on-mouse-event dc x y editorx editory event))
-             ;; Event was handled
-             #t)
-            (#t
-             ;; Else pass it on to any layers that wish to handle mouse
-             ;; events, and return true if they handled the event.
-             ;; Automatically returns #f when no layers handle the event.
-             (for/or ([l (in-list the-mouse-event-layers)])
-               (send l on-mouse-event dc x y editorx editory event)))))
+            ;; Return as "Not handled', let others maybe handle it
+            #f)
+      ((send event dragging?)
+       (let ((mouse-x (send event get-x))
+             (mouse-y (send event get-y)))
+         (when (and last-mouse-x last-mouse-y)
+           (drag-map (- mouse-x last-mouse-x) (- mouse-y last-mouse-y)))
+         (set! last-mouse-x mouse-x)
+         (set! last-mouse-y mouse-y)
+         (let-values ([(glong glat) (pos-local->global last-mouse-x last-mouse-y)])
+           (for/or ([l (in-list the-mouse-event-layers)])
+             (send l on-mouse-event dc x y editorx editory event
+                   glong
+                   glat))))
+       (set! auto-resize-to-fit? #f)
+       ;; Event was handled
+       #t)
+      (#t
+       ;; Else pass it on to any layers that wish to handle mouse
+       ;; events, and return true if they handled the event.
+       ;; Automatically returns #f when no layers handle the event.
+       (for/or ([l (in-list the-mouse-event-layers)])
+         (send l on-mouse-event dc x y editorx editory event)))))
 
-    ;; Handle a keyboard event.  Return #t if the event was handled, #f
-    ;; otherwise.  Note that the wheel scroll with the mouse is received as
-    ;; keyboard events.  Also, in an `editor-canvas%`, these events are
-    ;; handled by the canvas for scrolling unless you call:
-    ;;
-    ;; (send canvas  wheel-step #f)
-    ;;
-    ;; We use wheel scroll to implement the zoom/unzoom functionality
-    (define/public (on-char dc x y editorx editory event)
-      ;; Implement map zoom-in and out using the mouse wheel.  Mouse wheel
-      ;; zoom is handled by the key event
-      (case (send event get-key-code)
-        [(wheel-up up add)
-         (when (< the-zoom-level (max-zoom-level))
-           (zoom-level (add1 the-zoom-level)))
-         #t]
-        [(wheel-down down subtract)
-         (when (> the-zoom-level (min-zoom-level))
-           (zoom-level (sub1 the-zoom-level)))
-         #t]
-        [(#\c) (center-map)]
-        [(#\f) (resize-to-fit)]
-        (else #f)))
+  ;; Handle a keyboard event.  Return #t if the event was handled, #f
+  ;; otherwise.  Note that the wheel scroll with the mouse is received as
+  ;; keyboard events.  Also, in an `editor-canvas%`, these events are
+  ;; handled by the canvas for scrolling unless you call:
+  ;;
+  ;; (send canvas  wheel-step #f)
+  ;;
+  ;; We use wheel scroll to implement the zoom/unzoom functionality
+  (define/public (on-char dc x y editorx editory event)
+    ;; Implement map zoom-in and out using the mouse wheel.  Mouse wheel
+    ;; zoom is handled by the key event
+    (case (send event get-key-code)
+      [(wheel-up up add)
+       (when (< the-zoom-level (max-zoom-level))
+         (zoom-level (add1 the-zoom-level)))
+       #t]
+      [(wheel-down down subtract)
+       (when (> the-zoom-level (min-zoom-level))
+         (zoom-level (sub1 the-zoom-level)))
+       #t]
+      [(#\c) (center-map)]
+      [(#\f) (resize-to-fit)]
+      (else #f)))
 
-    ;; Clear the DC to a white color in the rectangle X,Y,WIDTH,HEIGHT -- this
-    ;; is used when show-map-layer? is #f
-    (define/private (clear-dc dc x y width height)
-      (let ((old-brush (send dc get-brush))
-            (old-pen (send dc get-pen)))
-        (send dc set-pen
-              (send the-pen-list find-or-create-pen "black" 0 'transparent))
-        (send dc set-brush
-              (send the-brush-list find-or-create-brush "white" 'solid))
-        (send dc draw-rectangle 0 0 width height)
-        (send dc set-pen old-pen)
-        (send dc set-brush old-brush)))
+  ;; Clear the DC to a white color in the rectangle X,Y,WIDTH,HEIGHT -- this
+  ;; is used when show-map-layer? is #f
+  (define/private (clear-dc dc x y width height)
+    (let ((old-brush (send dc get-brush))
+          (old-pen (send dc get-pen)))
+      (send dc set-pen
+            (send the-pen-list find-or-create-pen "black" 0 'transparent))
+      (send dc set-brush
+            (send the-brush-list find-or-create-brush "white" 'solid))
+      (send dc draw-rectangle 0 0 width height)
+      (send dc set-pen old-pen)
+      (send dc set-brush old-brush)))
 
-    (define tooltip #f)
+  (define tooltip #f)
 
-    ;; Draw the map on the device context DC at position X, Y.  The width and
-    ;; height of the map is stored in this object.  Note that the code must
-    ;; not assume that the entire device context is covered by the map.
-    (define/public (draw dc x y)
-      (set-box! good-to-refresh? #t)
-      (set! tooltip #f)
-      (with-draw-context dc
-        (lambda ()
-          (with-clipping-rect dc x y width height
-            (lambda ()
-              (if show-map-layer?
-                  (draw-map-tiles dc x y)
-                  (clear-dc dc x y width height))
-              (with-origin dc (- origin-x x) (- origin-y y)
-                (lambda ()
-                  (for ([layer (in-list the-layers)])
-                    (send layer draw dc the-zoom-level))
-                  (when debug?
-                    (define bbox (get-bounding-box))
-                    (when bbox
-                      (draw-bounding-box dc bbox the-zoom-level)))
-                  (when tooltip
-                    (match-define (list p x y offset) tooltip)
-                    (define-values (sx sy) (values (- x origin-x) (- y origin-y)))
-                    (define-values (pw ph) (values (pict-width p) (pict-height p)))
-                    ;; Place the tooltip around the mouse location such that it shows on
-                    ;; the screen.
-                    (cond ((and (< (+ sx pw) width)
-                                (< (+ sy ph) height))
-                           (draw-pict p dc (+ x offset) (+ y offset)))
-                          ((< (+ sx pw) width)
-                           (draw-pict p dc (+ x offset) (- y offset ph)))
-                          ((< (+ sy ph) height)
-                           (draw-pict p dc (- x offset pw) (+ y offset)))
-                          (else
-                           (draw-pict p dc (- x offset pw) (- y offset ph))))
-                    (set! tooltip #f)   ; good for one use only
+  ;; Draw the map on the device context DC at position X, Y.  The width and
+  ;; height of the map is stored in this object.  Note that the code must
+  ;; not assume that the entire device context is covered by the map.
+  (define/public (draw dc x y)
+    (set-box! good-to-refresh? #t)
+    (set! tooltip #f)
+    (with-draw-context dc
+      (lambda ()
+        (with-clipping-rect dc x y width height
+          (lambda ()
+            (if show-map-layer?
+                (draw-map-tiles dc x y)
+                (clear-dc dc x y width height))
+            (with-origin dc (- origin-x x) (- origin-y y)
+              (lambda ()
+                (for ([layer (in-list the-layers)])
+                  (send layer draw dc the-zoom-level))
+                (when debug?
+                  (define bbox (get-bounding-box))
+                  (when bbox
+                    (draw-bounding-box dc bbox the-zoom-level)))
+                (when tooltip
+                  (match-define (list p x y offset) tooltip)
+                  (define-values (sx sy) (values (- x origin-x) (- y origin-y)))
+                  (define-values (pw ph) (values (pict-width p) (pict-height p)))
+                  ;; Place the tooltip around the mouse location such that it shows on
+                  ;; the screen.
+                  (cond ((and (< (+ sx pw) width)
+                              (< (+ sy ph) height))
+                         (draw-pict p dc (+ x offset) (+ y offset)))
+                        ((< (+ sx pw) width)
+                         (draw-pict p dc (+ x offset) (- y offset ph)))
+                        ((< (+ sy ph) height)
+                         (draw-pict p dc (- x offset pw) (+ y offset)))
+                        (else
+                         (draw-pict p dc (- x offset pw) (- y offset ph))))
+                  (set! tooltip #f)   ; good for one use only
 
-                    ))))))))
+                  ))))))))
 
 
-    ;; return the dimensions of the map
-    (define/public (get-size)
-      (values width height))
+  ;; return the dimensions of the map
+  (define/public (get-size)
+    (values width height))
 
-    (define/public (show-tooltip pict x y offset)
-      (set! tooltip (list pict x y offset)))
+  (define/public (show-tooltip pict x y offset)
+    (set! tooltip (list pict x y offset)))
 
-    ;; Timer to schedule a re-paint of the canvas when we have some missing
-    ;; tiles -- hopefully the tiles will arrive by the time we get to re-paint
-    (define redraw-timer
-      (new one-shot-timer%
-           [notify-callback
-            (lambda ()
-              ;; Not sure why this is needed, but timed redraws don't work
-              ;; without it...
+  ;; Timer to schedule a re-paint of the canvas when we have some missing
+  ;; tiles -- hopefully the tiles will arrive by the time we get to re-paint
+  (define redraw-timer
+    (new one-shot-timer%
+         [notify-callback
+          (lambda ()
+            ;; Not sure why this is needed, but timed redraws don't work
+            ;; without it...
+            (set-box! good-to-refresh? #t)
+            (refresh))]))
+
+  ;; Timer to schedule a resize-to-fit event when the bounding box of some
+  ;; of the layers change.  Used by the point-cloud-layer% which supports
+  ;; streaming in points.
+  (define auto-resize-to-fit-timer
+    (new one-shot-timer%
+         [notify-callback
+          (lambda ()
+            (when auto-resize-to-fit?
               (set-box! good-to-refresh? #t)
-              (refresh))]))
+              (resize-to-fit)))]))
 
-    ;; Timer to schedule a resize-to-fit event when the bounding box of some
-    ;; of the layers change.  Used by the point-cloud-layer% which supports
-    ;; streaming in points.
-    (define auto-resize-to-fit-timer
-      (new one-shot-timer%
-           [notify-callback
-            (lambda ()
-              (when auto-resize-to-fit?
-                (set-box! good-to-refresh? #t)
-                (resize-to-fit)))]))
+  ;; Draw the map tiles on the device context DC at DX, DY.  Note that this
+  ;; function does not assume that the map is drawn on the entire device
+  ;; context.
+  (define/private (draw-map-tiles dc dx dy)
+    (send redraw-timer stop)
 
-    ;; Draw the map tiles on the device context DC at DX, DY.  Note that this
-    ;; function does not assume that the map is drawn on the entire device
-    ;; context.
-    (define/private (draw-map-tiles dc dx dy)
-      (send redraw-timer stop)
+    ;; Use smoothing on high DPI displays, but not on low DPI ones (each
+    ;; look better in the corresponding mode).
+    (define old-smoothing (send dc get-smoothing))
+    (if (> (get-display-backing-scale) 1.0)
+        (send dc set-smoothing 'smoothed)
+        (send dc set-smoothing 'unsmoothed))
 
-      ;; Use smoothing on high DPI displays, but not on low DPI ones (each
-      ;; look better in the corresponding mode).
-      (define old-smoothing (send dc get-smoothing))
-      (if (> (get-display-backing-scale) 1.0)
-          (send dc set-smoothing 'smoothed)
-          (send dc set-smoothing 'unsmoothed))
+    (let* ((request-redraw? #f)
+           ;; Coordinates of the tile at canvas origin (need not be a valid
+           ;; tile)
+           (tile0-x (exact-floor (/ origin-x tile-size)))
+           (tile0-y (exact-floor (/ origin-y tile-size)))
 
-      (let* ((request-redraw? #f)
-             ;; Coordinates of the tile at canvas origin (need not be a valid
-             ;; tile)
-             (tile0-x (exact-floor (/ origin-x tile-size)))
-             (tile0-y (exact-floor (/ origin-y tile-size)))
+           ;; offset inside the tile where the canvas origin lives.
+           (xofs (- origin-x (* tile0-x tile-size)))
+           (yofs (- origin-y (* tile0-y tile-size))))
 
-             ;; offset inside the tile where the canvas origin lives.
-             (xofs (- origin-x (* tile0-x tile-size)))
-             (yofs (- origin-y (* tile0-y tile-size))))
+      (for* ((x (in-range 0 tw))
+             (y (in-range 0 th)))
+        (let ((tile-x (+ tile0-x x))
+              (tile-y (+ tile0-y y)))
+          (when (and (valid-tile-num? tile-x) (valid-tile-num? tile-y))
+            (let ((bmp (or (get-tile-bitmap (tile the-zoom-level tile-x tile-y))
+                           (begin (set! request-redraw? #t) empty-bmp))))
+              (send dc draw-bitmap bmp
+                    (+ dx (- (* x tile-size) xofs))
+                    (+ dy (- (* y tile-size) yofs)))))))
 
-        (for* ((x (in-range 0 tw))
-               (y (in-range 0 th)))
-          (let ((tile-x (+ tile0-x x))
-                (tile-y (+ tile0-y y)))
-            (when (and (valid-tile-num? tile-x) (valid-tile-num? tile-y))
-              (let ((bmp (or (get-tile-bitmap (tile the-zoom-level tile-x tile-y))
-                             (begin (set! request-redraw? #t) empty-bmp))))
-                (send dc draw-bitmap bmp
-                      (+ dx (- (* x tile-size) xofs))
-                      (+ dy (- (* y tile-size) yofs)))))))
+      ;; NOTE: this is likely incorrect: we only start the refresh timer if
+      ;; `allow-tile-download` is #t -- this is done to make the
+      ;; trends-chart tests pass, but it is likely incorrect, as we need to
+      ;; refresh even when tiles are retrieved from disk.
+      (when (allow-tile-download)
+        (cond
+          (request-redraw?
+           ;; We didn't get tiles we needed, maybe they are still fetched
+           ;; from the database, request a redraw in a short amount of time.
+           (send redraw-timer start 100 #t))
+          ((> (get-download-backlog) 0)
+           ;; So we have all the tiles we need, but more tiles are being
+           ;; downloaded.  Request a redraw with a longer timeout, since
+           ;; this will only update the tile backlog number.
+           (send redraw-timer start 1000 #t))))
 
-        ;; NOTE: this is likely incorrect: we only start the refresh timer if
-        ;; `allow-tile-download` is #t -- this is done to make the
-        ;; trends-chart tests pass, but it is likely incorrect, as we need to
-        ;; refresh even when tiles are retrieved from disk.
-        (when (allow-tile-download)
-          (cond
-            (request-redraw?
-             ;; We didn't get tiles we needed, maybe they are still fetched
-             ;; from the database, request a redraw in a short amount of time.
-             (send redraw-timer start 100 #t))
-            ((> (get-download-backlog) 0)
-             ;; So we have all the tiles we need, but more tiles are being
-             ;; downloaded.  Request a redraw with a longer timeout, since
-             ;; this will only update the tile backlog number.
-             (send redraw-timer start 1000 #t))))
+      (send dc set-smoothing old-smoothing)))
 
-        (send dc set-smoothing old-smoothing)))
+  ;; Set and get the current zoom level
+  (public zoom-level)
+  (define zoom-level
+    (case-lambda
+      [() the-zoom-level]
+      [(zl)
+       ;; Ensure the zoom level is in the valid range
+       (when (> zl (max-zoom-level)) (set! zl (max-zoom-level)))
+       (when (< zl (min-zoom-level)) (set! zl (min-zoom-level)))
+       ;; Don't do anything unless the zoom level actually changes
+       (unless (eq? zl the-zoom-level)
+         (set! auto-resize-to-fit? #f)
+         (let ((scale (expt 2 (- zl the-zoom-level))))
+           (set! the-zoom-level zl)
+           (set! max-tile-num (expt 2 the-zoom-level))
+           (set! max-coord (* tile-size max-tile-num))
+           ;; update the origin at the new zoom level (note that we scale
+           ;; around the center of the view)
+           (set! origin-x (- (* scale (+ origin-x (/ width 2))) (/ width 2)))
+           (set! origin-y (- (* scale (+ origin-y (/ height 2))) (/ height 2))))
+         (limit-origin width height)
+         (for ([l (in-list the-layers)])
+           (send l on-zoom-level-change zl))
+         (refresh)
+         (on-zoom-level-change the-zoom-level))]))
 
-    ;; Set and get the current zoom level
-    (public zoom-level)
-    (define zoom-level
-      (case-lambda
-        [() the-zoom-level]
-        [(zl)
-         ;; Ensure the zoom level is in the valid range
-         (when (> zl (max-zoom-level)) (set! zl (max-zoom-level)))
-         (when (< zl (min-zoom-level)) (set! zl (min-zoom-level)))
-         ;; Don't do anything unless the zoom level actually changes
-         (unless (eq? zl the-zoom-level)
-           (set! auto-resize-to-fit? #f)
-           (let ((scale (expt 2 (- zl the-zoom-level))))
-             (set! the-zoom-level zl)
-             (set! max-tile-num (expt 2 the-zoom-level))
-             (set! max-coord (* tile-size max-tile-num))
-             ;; update the origin at the new zoom level (note that we scale
-             ;; around the center of the view)
-             (set! origin-x (- (* scale (+ origin-x (/ width 2))) (/ width 2)))
-             (set! origin-y (- (* scale (+ origin-y (/ height 2))) (/ height 2))))
-           (limit-origin width height)
-           (for ([l (in-list the-layers)])
-             (send l on-zoom-level-change zl))
-           (refresh)
-           (on-zoom-level-change the-zoom-level))]))
+  (public show-map-layer)
+  (define show-map-layer
+    (case-lambda
+      [() show-map-layer?]
+      [(flag)
+       (unless (equal? show-map-layer? flag)
+         (set! show-map-layer? flag)
+         (refresh))]))
 
-    (public show-map-layer)
-    (define show-map-layer
-      (case-lambda
-        [() show-map-layer?]
-        [(flag)
-         (unless (equal? show-map-layer? flag)
-           (set! show-map-layer? flag)
-           (refresh))]))
+  (define/public (on-zorder-changed)
+    (set! the-layers (sort-layers-by-zorder the-layers))
+    (refresh))
 
-    (define/public (on-zorder-changed)
-      (set! the-layers (sort-layers-by-zorder the-layers))
-      (refresh))
+  (define/public (find-layer-by-name name)
+    (for/first ([layer (in-list the-layers)]
+                #:when (equal? name (send layer get-name)))
+      layer))
 
-    (define/public (find-layer-by-name name)
-      (for/first ([layer (in-list the-layers)]
-                  #:when (equal? name (send layer get-name)))
-        layer))
+  (define/public (get-all-layers)
+    the-layers)
 
-    (define/public (get-all-layers)
-      the-layers)
+  (define/public (add-layer layer)
+    ;; Remove any previous layer by that name.
+    ;; TODO: add a #:replace? option and error out if we try to add duplicates?
+    (remove-layer (send layer get-name))
+    (set! the-layers (sort-layers-by-zorder (cons layer the-layers)))
+    (send layer set-admin this)
+    (refresh))
 
-    (define/public (add-layer layer)
-      ;; Remove any previous layer by that name.
-      ;; TODO: add a #:replace? option and error out if we try to add duplicates?
-      (remove-layer (send layer get-name))
-      (set! the-layers (sort-layers-by-zorder (cons layer the-layers)))
-      (send layer set-admin this)
-      (refresh))
+  ;; Register a layer to receive mouse events -- such layers will have their
+  ;; on-mouse-event method called on mouse events...
+  (define/public (register-for-mouse-events layer-name)
+    (define l (find-layer-by-name layer-name))
+    (when l
+      (unless (member l the-mouse-event-layers)
+        (set! the-mouse-event-layers (cons l the-mouse-event-layers)))))
 
-    ;; Register a layer to receive mouse events -- such layers will have their
-    ;; on-mouse-event method called on mouse events...
-    (define/public (register-for-mouse-events layer-name)
-      (define l (find-layer-by-name layer-name))
-      (when l
-        (unless (member l the-mouse-event-layers)
-          (set! the-mouse-event-layers (cons l the-mouse-event-layers)))))
+  (define/public (unregister-for-mouse-events layer-name)
+    (define l (find-layer-by-name layer-name))
+    (when l
+      (set! the-mouse-event-layers (remove l the-mouse-event-layers))))
 
-    (define/public (unregister-for-mouse-events layer-name)
-      (define l (find-layer-by-name layer-name))
-      (when l
-        (set! the-mouse-event-layers (remove l the-mouse-event-layers))))
+  (define/public (remove-layer layer-name)
+    (if layer-name
+        (let ([l (find-layer-by-name layer-name)])
+          (when l
+            (set! the-layers (remove l the-layers))
+            (set! the-mouse-event-layers (remove l the-mouse-event-layers))
+            (send l set-admin #f)))
+        (begin
+          (for ([l (in-list the-layers)])
+            (send l set-admin #f))
+          (set! the-layers '())
+          (set! the-mouse-event-layers '())))
+    (refresh))
 
-    (define/public (remove-layer layer-name)
-      (if layer-name
-          (let ([l (find-layer-by-name layer-name)])
-            (when l
-              (set! the-layers (remove l the-layers))
-              (set! the-mouse-event-layers (remove l the-mouse-event-layers))
-              (send l set-admin #f)))
-          (begin
-            (for ([l (in-list the-layers)])
-              (send l set-admin #f))
-            (set! the-layers '())
-            (set! the-mouse-event-layers '())))
-      (refresh))
+  ;; Return the bounding box for all tracks in GROUP, or if GROUP is #f for
+  ;; all tracks on the map.
+  (define/private (get-bounding-box [group #f])
+    (if group
+        (let ([l (find-layer-by-name group)])
+          (and l (send l get-bounding-box)))
+        (for/fold ([outer #f])
+                  ([layer (in-list the-layers)])
+          (let ([bb (send layer get-bounding-box)])
+            (if (and outer bb)
+                (bbox-merge outer bb)
+                (or outer bb))))))
 
-    ;; Return the bounding box for all tracks in GROUP, or if GROUP is #f for
-    ;; all tracks on the map.
-    (define/private (get-bounding-box [group #f])
-      (if group
-          (let ([l (find-layer-by-name group)])
-            (and l (send l get-bounding-box)))
-          (for/fold ([outer #f])
-                    ([layer (in-list the-layers)])
-            (let ([bb (send layer get-bounding-box)])
-              (if (and outer bb)
-                  (bbox-merge outer bb)
-                  (or outer bb))))))
+  ;; Return the center position for all tracks in GROUP, or the center
+  ;; position for all tracks when GROUP is #f
+  (define/private (get-center [group #f])
+    (let ([bbox (get-bounding-box group)])
+      (if bbox
+          (let ([cp/ndcs (bbox-center/ndcs bbox)])
+            (values (* (npoint-x cp/ndcs) max-coord)
+                    (* (npoint-y cp/ndcs) max-coord)))
+          ;; For no particular reason, the center of the map, when no
+          ;; bounding box is available is the middle of Swan River, Perth,
+          ;; Western Australia
+          (let ([p (lat-lon->npoint -31.974762 115.839303)])
+            (values (* (npoint-x p) max-coord)
+                    (* (npoint-y p) max-coord))))))
 
-    ;; Return the center position for all tracks in GROUP, or the center
-    ;; position for all tracks when GROUP is #f
-    (define/private (get-center [group #f])
-      (let ([bbox (get-bounding-box group)])
-        (if bbox
-            (let ([cp/ndcs (bbox-center/ndcs bbox)])
-              (values (* (npoint-x cp/ndcs) max-coord)
-                      (* (npoint-y cp/ndcs) max-coord)))
-            ;; For no particular reason, the center of the map, when no
-            ;; bounding box is available is the middle of Swan River, Perth,
-            ;; Western Australia
-            (let ([p (lat-lon->npoint -31.974762 115.839303)])
-              (values (* (npoint-x p) max-coord)
-                      (* (npoint-y p) max-coord))))))
+  ;; Move the map so that the tracks are centered in the middle.
+  (define/public (center-map [group #f])
+    (let-values (([cx cy] (get-center group)))
+      (set! origin-x (- cx (/ width 2)))
+      (set! origin-y (- cy (/ height 2))))
+    (limit-origin width height)
+    (refresh))
 
-    ;; Move the map so that the tracks are centered in the middle.
-    (define/public (center-map [group #f])
-      (let-values (([cx cy] (get-center group)))
-        (set! origin-x (- cx (/ width 2)))
-        (set! origin-y (- cy (/ height 2))))
-      (limit-origin width height)
-      (refresh))
+  ;; Resize (set the zoom level) and center the map so that all tracks in
+  ;; GROUP are visible.  If GROUP is #f, resize and center the map such that
+  ;; all tracks are visible.
+  (define/public (resize-to-fit [group #f])
+    ;; NOTE: we always force a refresh if we are resizing to the group,
+    ;; since I am too lazy to record that the `delayed-resize-to-fit?`
+    ;; refers to a group (currently it will resize to fit the entire track.
+    (if (or (zero? edit-sequence-level) group)
+        (let ((saved-flag auto-resize-to-fit?)
+              (bbox (get-bounding-box group)))
+          (when bbox
+            (zoom-level (select-zoom-level bbox width height))
+            ;; calling zoom-level will reset this flag (it needs to as
+            ;; zoom-level is a public facing function), restore the previous
+            ;; value here.
+            (set! auto-resize-to-fit? saved-flag))
+          (center-map group)
+          (refresh))
+        (set! delayed-resize-to-fit? #t)))
 
-    ;; Resize (set the zoom level) and center the map so that all tracks in
-    ;; GROUP are visible.  If GROUP is #f, resize and center the map such that
-    ;; all tracks are visible.
-    (define/public (resize-to-fit [group #f])
-      ;; NOTE: we always force a refresh if we are resizing to the group,
-      ;; since I am too lazy to record that the `delayed-resize-to-fit?`
-      ;; refers to a group (currently it will resize to fit the entire track.
-      (if (or (zero? edit-sequence-level) group)
-          (let ((saved-flag auto-resize-to-fit?)
-                (bbox (get-bounding-box group)))
-            (when bbox
-              (zoom-level (select-zoom-level bbox width height))
-              ;; calling zoom-level will reset this flag (it needs to as
-              ;; zoom-level is a public facing function), restore the previous
-              ;; value here.
-              (set! auto-resize-to-fit? saved-flag))
-            (center-map group)
-            (refresh))
-          (set! delayed-resize-to-fit? #t)))
+  ;; move the map such that POSITION is in the center
+  (define/public (move-to position)
+    (match-define (vector lat lon _ ...) position)
+    (let* ([p (lat-lon->npoint lat lon)]
+           [cx (* (npoint-x p) max-coord)]
+           [cy (* (npoint-y p) max-coord)])
+      (set! origin-x (- cx (/ width 2)))
+      (set! origin-y (- cy (/ height 2))))
+    (limit-origin width height)
+    (refresh))
 
-    ;; move the map such that POSITION is in the center
-    (define/public (move-to position)
-      (match-define (vector lat lon _ ...) position)
-      (let* ([p (lat-lon->npoint lat lon)]
-             [cx (* (npoint-x p) max-coord)]
-             [cy (* (npoint-y p) max-coord)])
-        (set! origin-x (- cx (/ width 2)))
-        (set! origin-y (- cy (/ height 2))))
-      (limit-origin width height)
-      (refresh))
+  ;; Write an image of the current map to FILE-NAME
+  (define/public (export-image-to-file file-name)
+    (let ((bmp (make-bitmap width height)))
+      (draw (new bitmap-dc% [bitmap bmp]) 0 0)
+      (send bmp save-file file-name 'png)))
 
-    ;; Write an image of the current map to FILE-NAME
-    (define/public (export-image-to-file file-name)
-      (let ((bmp (make-bitmap width height)))
-        (draw (new bitmap-dc% [bitmap bmp]) 0 0)
-        (send bmp save-file file-name 'png)))
+  (public auto-resize-to-fit)
+  (define auto-resize-to-fit
+    (case-lambda
+      [() auto-resize-to-fit?]
+      [(flag)
+       (set! auto-resize-to-fit? flag)
+       flag]))
 
-    (public auto-resize-to-fit)
-    (define auto-resize-to-fit
-      (case-lambda
-        [() auto-resize-to-fit?]
-        [(flag)
-         (set! auto-resize-to-fit? flag)
-         flag]))
+  ;; Start an edit sequence.  The map will not be refreshed while an edit
+  ;; sequence is in progress, allowing the caller to make many map
+  ;; modifications in one go without a refresh being queued in-between.  An
+  ;; edit sequence is completed by calling `end-edit-sequence`.  Edit
+  ;; sequence can be nested.
+  (define/public (begin-edit-sequence)
+    (set! edit-sequence-level (add1 edit-sequence-level)))
 
-    ;; Start an edit sequence.  The map will not be refreshed while an edit
-    ;; sequence is in progress, allowing the caller to make many map
-    ;; modifications in one go without a refresh being queued in-between.  An
-    ;; edit sequence is completed by calling `end-edit-sequence`.  Edit
-    ;; sequence can be nested.
-    (define/public (begin-edit-sequence)
-      (set! edit-sequence-level (add1 edit-sequence-level)))
+  ;; End an edit sequence started by `begin-edit-sequence`.
+  (define/public (end-edit-sequence)
+    (when (zero? edit-sequence-level)
+      (error "map-impl%/end-edit-sequence: bad call"))
+    (set! edit-sequence-level (sub1 edit-sequence-level))
+    (when (zero? edit-sequence-level)
+      (when delayed-resize-to-fit?
+        (set! delayed-resize-to-fit? #f)
+        (resize-to-fit))
+      (refresh)))
 
-    ;; End an edit sequence started by `begin-edit-sequence`.
-    (define/public (end-edit-sequence)
-      (when (zero? edit-sequence-level)
-        (error "map-impl%/end-edit-sequence: bad call"))
-      (set! edit-sequence-level (sub1 edit-sequence-level))
-      (when (zero? edit-sequence-level)
-        (when delayed-resize-to-fit?
-          (set! delayed-resize-to-fit? #f)
-          (resize-to-fit))
-        (refresh)))
+  (if position (move-to position) (center-map))
 
-    (if position (move-to position) (center-map))
-
-    ))
+  ))
