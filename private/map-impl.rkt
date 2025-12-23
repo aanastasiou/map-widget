@@ -250,43 +250,58 @@
       (limit-origin width height)
       (refresh))
 
+    ;; Convert local (widget) coordinates to global coordinates (map (WGS84) coordinates),
+    ;; Returns False if (x,y) point to an "unreachable" map location
+    (define/public (pos-local->global x y)
+      (and (and (< x max-coord)
+                (< y max-coord))            
+           (let ([lcx ((origin-x . + . x) . / . max-coord)]
+                 [lcy ((origin-y . + . y) . / . max-coord)])        
+             (npoint->lat-lon (npoint lcx lcy)))))
+
+    ;; Retrieve the geographical point at the centre of the map
+    (define/public (get-position)
+      (let ([wid (width . / . 2)]
+            [hei (height . / . 2)])
+        (pos-local->global wid hei)))        
+
     ;; Handle a mouse event.  Return #t if the event was handled, #f
     ;; otherwise.
     (define/public (on-event dc x y editorx editory event)
       (cond ((send event button-down? 'left)
              (set! last-mouse-x (send event get-x))
              (set! last-mouse-y (send event get-y))
-             (display "\n")
-             (display "DATA \n")
-             (display (send event get-x))
-             (display "\n")
-             (display last-mouse-y)
-             (display "\n")
-             (display width)
-             (display "\n")
-             (display height)
-             (display "\n")
-             (display origin-x)
-             (display "\n")
-             (display origin-y)
-             (display "\n")
-             (display max-coord)
-             (display "\n")
-             (display "INFERENCE\n")
-             (let*-values ([(top-left-x) (origin-x . / . max-coord)]
-                          [(top-left-y) (origin-y . / . max-coord)]
-                          [(lcx) ((origin-x . + . (width . / . 2)) . / . max-coord)]
-                          [(lcy) ((origin-y . + . (height . / . 2)) . / . max-coord)]
-                          [(lcx2) ((origin-x . + . last-mouse-x) . / . max-coord)]
-                          [(lcy2) ((origin-y . + . last-mouse-y) . / . max-coord)]
-                          [(px py) (npoint->lat-lon (npoint lcx lcy))]
-                          [(px2 py2) (npoint->lat-lon (npoint lcx2 lcy2))])                   
-               (display (format "Top left corner X:~a\n" top-left-x))
-               (display (format "Top left corner Y:~a\n" top-left-y))
-               (display (format "Centre X:~a\n" px))
-               (display (format "Centre Y:~a\n" py))
-               (display (format "Mouse X:~a\n" px2))
-               (display (format "Mouse Y:~a\n" py2)))
+;             (display "\n")
+;             (display "DATA \n")
+;             (display (send event get-x))
+;             (display "\n")
+;             (display last-mouse-y)
+;             (display "\n")
+;             (display width)
+;             (display "\n")
+;             (display height)
+;             (display "\n")
+;             (display origin-x)
+;             (display "\n")
+;             (display origin-y)
+;             (display "\n")
+;             (display max-coord)
+;             (display "\n")
+;             (display "INFERENCE\n")
+;             (let*-values ([(top-left-x) (origin-x . / . max-coord)]
+;                           [(top-left-y) (origin-y . / . max-coord)]
+;                           [(lcx) ((origin-x . + . (width . / . 2)) . / . max-coord)]
+;                           [(lcy) ((origin-y . + . (height . / . 2)) . / . max-coord)]
+;                           [(lcx2) ((origin-x . + . last-mouse-x) . / . max-coord)]
+;                           [(lcy2) ((origin-y . + . last-mouse-y) . / . max-coord)]
+;                           [(px py) (npoint->lat-lon (npoint lcx lcy))]
+;                           [(px2 py2) (npoint->lat-lon (npoint lcx2 lcy2))])                   
+;               (display (format "Top left corner X:~a\n" top-left-x))
+;               (display (format "Top left corner Y:~a\n" top-left-y))
+;               (display (format "Centre X:~a\n" px))
+;               (display (format "Centre Y:~a\n" py))
+;               (display (format "Mouse X:~a\n" px2))
+;               (display (format "Mouse Y:~a\n" py2)))
              
              ;; Return as "Not handled', let others maybe handle it
              (for/or ([l (in-list the-mouse-event-layers)])
