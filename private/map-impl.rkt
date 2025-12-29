@@ -236,6 +236,9 @@
     (define last-mouse-x #f)
     (define last-mouse-y #f)
 
+    (define last-origin-x #f)
+    (define last-origin-y #f)
+
     ;; Determine which cursor to use for the specified mouse EVENT.  This is a
     ;; helper method for the map-snip% class.
     (define/public (adjust-cursor dc x y editorx editory event)
@@ -256,8 +259,8 @@
     (define/public (pos-local->global x y)
       (and (and (< x max-coord)
                 (< y max-coord))            
-           (let ([lcx ((origin-x . + . x) . / . max-coord)]
-                 [lcy ((origin-y . + . y) . / . max-coord)])        
+           (let ([lcx (((or last-origin-x origin-x) . + . x) . / . max-coord)]
+                 [lcy (((or last-origin-y origin-y) . + . y) . / . max-coord)])        
              (npoint->lat-lon (npoint lcx lcy)))))
 
     ;; Retrieve the geographical point at the centre of the map
@@ -272,6 +275,8 @@
       (cond ((send event button-down? 'left)
              (set! last-mouse-x (send event get-x))
              (set! last-mouse-y (send event get-y))
+             (set! last-origin-x origin-x)
+             (set! last-origin-y origin-y)
              ;; Call the on-click notification with the current geographical position.
              (let-values ([(u v) (pos-local->global last-mouse-x last-mouse-y)])
                (on-click event u v))
@@ -283,6 +288,8 @@
              ;; Call the on-click notification with the current geographical position.
              (let-values ([(u v) (pos-local->global (send event get-x) (send event get-y))])
                (on-click event u v))
+             (set! last-origin-x #f)
+             (set! last-origin-y #f)
              ;; Return as "Not handled', let others maybe handle it
              #f)
             ((send event dragging?)
