@@ -244,6 +244,9 @@
     (define/public (on-zoom-level-change zl)
       (void))
 
+    (define/public (on-click event geo-u geo-v)
+      (void))
+
     (define/public (delete-group group)
       (deprecated-delete-group map-impl group))
 

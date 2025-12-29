@@ -143,7 +143,8 @@
            [zoom zoom]
            [position position]
            [request-refresh (lambda () (queue-callback (lambda () (send canvas refresh))))]
-           [on-zoom-level-change (lambda (zl) (on-zoom-level-change zl))]))
+           [on-zoom-level-change (lambda (zl) (on-zoom-level-change zl))]
+           [on-click (lambda (event geo-u geo-v) (on-click event geo-u geo-v))]))
 
     ;; The methods below are provided as forwarding calls into the map-impl%
     ;; itself...
@@ -237,4 +238,6 @@
     (define/public (on-zoom-level-change zl)
       (void))
 
+    (define/public (on-click event geo-u geo-v)
+      (void))
     ))
