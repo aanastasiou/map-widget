@@ -253,13 +253,16 @@
       (refresh))
 
     ;; Convert local (widget) coordinates to global coordinates (map (WGS84) coordinates),
-    ;; Returns False if (x,y) point to an "unreachable" map location
+    ;; Returns #f,#f if x,y point to an "unreachable" map location
+    ;;
+    ;; Note that npoint->lat-lon returns two values
     (define/public (pos-local->global x y)
-      (and (and (< x max-coord)
-                (< y max-coord))            
-           (let ([lcx ((origin-x . + . x) . / . max-coord)]
-                 [lcy ((origin-y . + . y) . / . max-coord)])        
-             (npoint->lat-lon (npoint lcx lcy)))))
+      (if (and (< x max-coord)
+               (< y max-coord))            
+          (let ([lcx (((or last-origin-x origin-x) . + . x) . / . max-coord)]
+                [lcy (((or last-origin-y origin-y) . + . y) . / . max-coord)])        
+            (npoint->lat-lon (npoint lcx lcy)))
+          (values #f #f)))
 
     ;; Retrieve the geographical point at the centre of the map
     (define/public (get-position)
@@ -277,13 +280,17 @@
              (set! last-origin-y origin-y)
              
              (for/or ([l (in-list the-mouse-event-layers)])
-               (send l on-mouse-event dc x y editorx editory event))
+               (send l on-mouse-event dc last-mouse-x last-mouse-y editorx editory event))
              ;; Return as "Not handled', let others maybe handle it
              #f)
             
-            ((send event button-up? 'left)             
-             (for/or ([l (in-list the-mouse-event-layers)])
-               (send l on-mouse-event dc x y editorx editory event))
+            ((send event button-up? 'left)
+             (set! last-mouse-x #f)
+             (set! last-mouse-y #f)
+             (let ([current-x (send event get-x)]
+                   [current-y (send event get-y)])
+               (for/or ([l (in-list the-mouse-event-layers)])
+                 (send l on-mouse-event dc (send event get-x) (send event get-y) editorx editory event)))
              (set! last-origin-x #f)
              (set! last-origin-y #f)
              ;; Return as "Not handled', let others maybe handle it

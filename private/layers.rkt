@@ -1053,8 +1053,8 @@
 
 (define on-mouse-interaction-proc/c
   (-> (is-a?/c mouse-event%)
-      real?
-      real?
+      (or/c real? #f)
+      (or/c real? #f)
       boolean?))
 
 
