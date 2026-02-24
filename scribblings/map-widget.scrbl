@@ -8,7 +8,7 @@
                     racket/gui]]
 
 @title{A Racket GUI Widget to display maps based on OpenStreetMap tiles }
-@author{Alex Hars·nyi}
+@author{Alex Hars√°nyi}
 
 This module contains a widget to display a map based on OpenStreetMap data,
 plus additional markers and GPS tracks.  The widget allows zooming and paning
