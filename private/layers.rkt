@@ -5,7 +5,7 @@
 ;; This file is part of map-widget -- A Racket GUI Widget to display maps
 ;; based on OpenStreetMap tiles
 ;;
-;; Copyright (c) 2019, 2024, 2023, 2024 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (c) 2019, 2024, 2023, 2024, 2026 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU Lesser General Public License as published by
@@ -137,9 +137,7 @@
     (define/public (on-zoom-level-change zl)
       (void))
 
-    (define/public (on-mouse-event dc x y editorx editory event
-                                   [longitude #f]
-                                   [latitude #f])
+    (define/public (on-mouse-event dc x y editorx editory event)
       ;; Return #f by default to indicate that we didn't handle the event.
       #f)
 
@@ -218,12 +216,18 @@
   (class* layer% (layer<%>)
     (init-field on-mouse-interaction-proc)
     (super-new)
-    (inherit get-admin get-name)
+    (inherit get-admin)
 
     (define/override (on-mouse-event dc x y editorx editory event)
-      (let-values ([(u v) (send (get-admin) pos-local->global x y)])
-        (on-mouse-interaction-proc event u v)))
-    
+      (let ([a (get-admin)])
+        (if a
+            (let-values ([(ox oy) (send a get-origin)])
+              (define mx (- (send event get-x) x))
+              (define my (- (send event get-y) y))
+              (define-values (lat lon) (send a pos-local->global mx my))
+              (on-mouse-interaction-proc event lat lon))
+            #f)))
+
     (define/public (get-bounding-box)
       #f)
 
@@ -234,16 +238,16 @@
 
     (define/public (draw dc the-zoom-level)
       (void))
-    
+
     (define/override (set-admin a)
       (super set-admin a)
       (when a
         (send a register-for-mouse-events (send this get-name))))))
-             
+
 (define (interaction-layer name on-event-proc)
   (new interaction-layer% [name name]
        [on-mouse-interaction-proc on-event-proc]))
-        
+
 ;; A layer that draws a collection of lines, a list of LAT/LON waypoints or
 ;; GPS tracks
 (define lines-layer%
@@ -1119,7 +1123,7 @@
         #:pen (is-a?/c pen%)
         #:brush (is-a?/c brush%))
        (is-a?/c current-location-layer%)))
- 
+
  (interaction-layer
   (-> (or/c symbol? integer?)
       on-mouse-interaction-proc/c

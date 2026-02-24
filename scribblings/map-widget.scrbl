@@ -8,7 +8,7 @@
                     racket/gui]]
 
 @title{A Racket GUI Widget to display maps based on OpenStreetMap tiles }
-@author{Alex Hars√°nyi}
+@author{Alex Hars·nyi}
 
 This module contains a widget to display a map based on OpenStreetMap data,
 plus additional markers and GPS tracks.  The widget allows zooming and paning
@@ -451,15 +451,15 @@ inserted in a @racket[pasteboard%].
 @defclass[interaction-layer% object% (layer<%>)]{
 
   A map layer that delegates mouse-event handling to a user-supplied procedure.
-  
+
   This layer does not have a graphical representation on the map as other layers
   do.
   Mouse events such as pressing a button and moving the pointer are produced
   as the user interacts with the map.
   The user-supplied procedure is called with the mouse event that triggered
   it and the geographical Longitude and Latitude associated with event.
-  For example, for a button-down event, the geographical location is the 
-  point where the button was pressed. 
+  For example, for a button-down event, the geographical location is the
+  point where the button was pressed.
 }
 
 @defproc[(interaction-layer (name (or/c symbol? string))
@@ -469,26 +469,25 @@ inserted in a @racket[pasteboard%].
                                                            boolean?)))
          (is-a/c interaction-layer%)]{
 
-  Create a new @racket[interaction-layer%] with the specified
-  @racket[name] and mouse interaction procedure attached to it.
+  Create a new @racket[interaction-layer%] with the specified @racket[name]
+  and mouse interaction procedure attached to it.
 
   The mouse interaction procedure is called with the @racket[mouse-event%]
-  that triggered it as well as the geographic longitude and latitude associated
-  with the mouse event.
+  that triggered it as well as the geographic longitude and latitude
+  associated with the mouse event.
 
   Having access to the @racket[mouse-event%] data makes it possible to check
-  which event occured, which mouse button was depressed or held, if any special
-  keyboard keys were depressed as well and other conditions.
-  
-  It is important to note that if an event occurs within the widget but outside 
-  of the area occupied by the map, the geographical location is undefined and
-  therefore takes the values @racket[#f #f].
-  This happens because of the difference between the aspect ratios of the
-  depicted map and the widget. The aspect ratio of the map is always 1:1
-  but that of the widget depends on its given width and height. Therefore,
-  zooming a square map as far out as possible within a rectangular window
-  can result in areas where the map cannot reach.
-  }
+  which event occured, which mouse button was depressed or held, if any
+  special keyboard keys were depressed as well and other conditions.
+
+  If an event occurs within the widget but outside of the area occupied by the
+  map, the geographical location is undefined and therefore takes the values
+  @racket[#f #f].  This happens because of the difference between the aspect
+  ratios of the depicted map and the widget. The aspect ratio of the map is
+  always 1:1 but that of the widget depends on its given width and
+  height. Therefore, zooming a square map as far out as possible within a
+  rectangular window can result in areas where the map cannot reach.
+}
 
 
 @subsection{Tile Providers}
