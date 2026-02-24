@@ -137,12 +137,13 @@
     (define/public (on-zoom-level-change zl)
       (void))
 
-    (define/public (on-mouse-event dc x y editorx editory event)
+    (define/public (on-mouse-event dc x y editorx editory event
+                                   [longitude #f]
+                                   [latitude #f])
       ;; Return #f by default to indicate that we didn't handle the event.
       #f)
 
     ))
-
 
 
 ;;......................................................... lines-layer% ....
@@ -211,6 +212,38 @@
 (define (default-lines-zorder)
   0.8)
 
+;; A layer that enables interactivity with a map-widget by
+;; responding to mouse events.
+(define interaction-layer%
+  (class* layer% (layer<%>)
+    (init-field on-mouse-interaction-proc)
+    (super-new)
+    (inherit get-admin get-name)
+
+    (define/override (on-mouse-event dc x y editorx editory event)
+      (let-values ([(u v) (send (get-admin) pos-local->global x y)])
+        (on-mouse-interaction-proc event u v)))
+    
+    (define/public (get-bounding-box)
+      #f)
+
+    (define/public (clone)
+      (new interaction-layer%
+           [name (send this get-name)]
+           [on-mouse-interaction-proc on-mouse-interaction-proc]))
+
+    (define/public (draw dc the-zoom-level)
+      (void))
+    
+    (define/override (set-admin a)
+      (super set-admin a)
+      (when a
+        (send a register-for-mouse-events (send this get-name))))))
+             
+(define (interaction-layer name on-event-proc)
+  (new interaction-layer% [name name]
+       [on-mouse-interaction-proc on-event-proc]))
+        
 ;; A layer that draws a collection of lines, a list of LAT/LON waypoints or
 ;; GPS tracks
 (define lines-layer%
@@ -685,8 +718,8 @@
     (define/public (clear)
       (set! the-point-cloud #f)
       (let ([a (get-admin)])
-          (when a
-            (send a refresh))))
+        (when a
+          (send a refresh))))
 
     ))
 
@@ -1018,7 +1051,15 @@
 
 ;;............................................................. provides ....
 
+(define on-mouse-interaction-proc/c
+  (-> (is-a?/c mouse-event%)
+      (or/c real? #f)
+      (or/c real? #f)
+      boolean?))
+
+
 (provide
+ interaction-layer%
  draw-bounding-box
  sort-layers-by-zorder
  layer<%>
@@ -1077,4 +1118,9 @@
         #:zorder (between/c 0 1)
         #:pen (is-a?/c pen%)
         #:brush (is-a?/c brush%))
-       (is-a?/c current-location-layer%))))
+       (is-a?/c current-location-layer%)))
+ 
+ (interaction-layer
+  (-> (or/c symbol? integer?)
+      on-mouse-interaction-proc/c
+      (is-a?/c interaction-layer%))))
